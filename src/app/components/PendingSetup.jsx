@@ -89,7 +89,7 @@ const PendingSetup = () => {
               className="btn btn-ghost text-primary hover:bg-primary/10"
               onClick={openModal}
             >
-              View All Pending Items
+              Check Error Module
             </button>
           </div>
         )}
