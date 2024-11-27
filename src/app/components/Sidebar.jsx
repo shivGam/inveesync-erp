@@ -20,29 +20,19 @@ import AuditLogModal from "../modals/AuditLogModal";
 
 const Sidebar = ({activeItem, setActiveItem}) => {
   const [isOpen, setIsOpen] = useState(true);
-  
 
   const menuItems = [
-    {
-      id: 1,
-      name: "Tenant Configuration",
-      icon: <FiSettings />,
-      progress: 100,
-    },
-    { id: 2, name: "Items Master", icon: <FiPackage />, progress: 75 },
-    { id: 3, name: "Processes", icon: <FiCpu />, progress: 50 },
-    { id: 4, name: "Bill of Materials", icon: <FiLayers />, progress: 25 },
-    { id: 5, name: "Process Steps", icon: <FiList />, progress: 0 },
+    { id: 1, name: "Tenant Configuration", icon: FiSettings },
+    { id: 2, name: "Items Master", icon: FiPackage },
+    { id: 3, name: "Processes", icon: FiCpu },
+    { id: 4, name: "Bill of Materials", icon: FiLayers },
+    { id: 5, name: "Process Steps", icon: FiList },
   ];
 
   const quickActions = [
-    { id: "bulk_upload", name: "Upload Bulk Data", icon: <FiUpload /> },
-    {
-      id: "download_templates",
-      name: "Download Templates",
-      icon: <FiDownload />,
-    },
-    { id: "view_audit_log", name: "View Audit Log", icon: <FiActivity /> },
+    { id: "bulk_upload", name: "Upload Bulk Data", icon: FiUpload },
+    { id: "download_templates", name: "Download Templates", icon: FiDownload },
+    { id: "view_audit_log", name: "View Audit Log", icon: FiActivity },
   ];
 
   const openModal = (id) => {
@@ -55,33 +45,43 @@ const Sidebar = ({activeItem, setActiveItem}) => {
   return (
     <>
       <aside
-        className={`flex flex-col md:h-screen bg-white border-r border-gray-100 transition-all duration-300 ease-in-out w-full md:w-fit md:${
-          isOpen ? "w-68" : "w-20"
+        className={`flex flex-col md:h-screen bg-white/80 backdrop-blur-md border-r border-gray-100 transition-all duration-300 ease-in-out w-full md:w-fit ${
+          isOpen ? "md:w-68" : "md:w-20"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
-          {isOpen && (
-            <div className="flex items-center gap-2">
-              <FiSettings className="text-blue-600" />
-              <h2 className="font-bold text-gray-800">Setup Progress</h2>
-            </div>
-          )}
-          {!isOpen && (
-            <div className="md:hidden flex items-center gap-2">
-              <FiSettings className="text-blue-600" />
-              <h2 className="font-bold text-gray-800">Setup Progress</h2>
-            </div>
-          )}
+        <div className="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-10 border-b border-gray-100">
+          <div className="flex items-center justify-between p-4">
+            {isOpen && (
+              <div className="flex items-center gap-2">
+                <FiSettings className="text-primary" />
+                <h2 className="font-bold text-gray-900 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                  Setup Progress
+                </h2>
+              </div>
+            )}
+            {!isOpen && (
+              <div className="md:hidden flex items-center gap-2">
+                <FiSettings className="text-primary" />
+                <h2 className="font-bold text-gray-900 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                  Setup Progress
+                </h2>
+              </div>
+            )}
 
-          <button             className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors hidden md:block"
- onClick={() => setIsOpen(!isOpen)}>{isOpen ? <FiX size={20} /> : <FiMenu size={20} />}</button>
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors md:hidden"
-          >
-            {isOpen ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
-          </button>
+            <button 
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors hidden md:block"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              {isOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+            </button>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors md:hidden"
+            >
+              {isOpen ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Navigation */}
@@ -92,50 +92,31 @@ const Sidebar = ({activeItem, setActiveItem}) => {
                 <li key={item.id}>
                   <button
                     onClick={() => setActiveItem(item.name)}
-                    className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all duration-300 ease-in-out hover:scale-105 ${
                       activeItem === item.name
-                        ? "bg-blue-50 border border-blue-100"
+                        ? "bg-gradient-to-r from-primary to-secondary text-white shadow-lg"
                         : "hover:bg-gray-50"
                     }`}
                   >
                     <span
                       className={`${
                         activeItem === item.name
-                          ? "text-blue-600"
+                          ? "text-white"
                           : "text-gray-400"
                       }`}
                     >
-                      {item.icon}
+                      <item.icon />
                     </span>
                     {isOpen && (
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center">
-                          <span
-                            className={`font-medium ${
-                              activeItem === item.name
-                                ? "text-blue-600"
-                                : "text-gray-700"
-                            }`}
-                          >
-                            {item.name}
-                          </span>
-                          {item.progress < 100 && (
-                            <span className="text-xs text-gray-500">
-                              {item.progress}%
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${
-                              item.progress === 100
-                                ? "bg-green-500"
-                                : "bg-blue-500"
-                            }`}
-                            style={{ width: `${item.progress}%` }}
-                          />
-                        </div>
-                      </div>
+                      <span
+                        className={`font-medium ${
+                          activeItem === item.name
+                            ? "text-white"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {item.name}
+                      </span>
                     )}
                   </button>
                 </li>
@@ -145,7 +126,7 @@ const Sidebar = ({activeItem, setActiveItem}) => {
         </div>
 
         {/* Quick Actions */}
-        <div className="border-t border-gray-100 bg-gray-50">
+        <div className="bg-white/70 backdrop-blur-md border-t border-gray-100 shadow-md">
           <div className="p-4">
             {isOpen && (
               <h3 className="text-sm font-semibold text-gray-500 mb-3 px-3">
@@ -157,10 +138,10 @@ const Sidebar = ({activeItem, setActiveItem}) => {
                 <li key={action.id}>
                   <button
                     onClick={() => openModal(action.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-all duration-300 ease-in-out hover:scale-105 text-gray-700 hover:text-primary"
                   >
-                    <span className="text-gray-400 group-hover:text-blue-500">
-                      {action.icon}
+                    <span className="text-gray-400 group-hover:text-primary">
+                      <action.icon />
                     </span>
                     {isOpen && (
                       <>
@@ -183,9 +164,9 @@ const Sidebar = ({activeItem, setActiveItem}) => {
         id="download_templates"
         className="modal modal-bottom sm:modal-middle"
       >
-        <div className="modal-box bg-white">
+        <div className="modal-box bg-white/80 backdrop-blur-md">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg text-gray-900">
+            <h3 className="font-bold text-lg text-gray-900 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
               Download Templates
             </h3>
             <button
@@ -209,7 +190,7 @@ const Sidebar = ({activeItem, setActiveItem}) => {
             >
               Cancel
             </button>
-            <button className="btn bg-blue-600 hover:bg-blue-700 text-white">
+            <button className="btn bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90">
               Download
             </button>
           </div>
