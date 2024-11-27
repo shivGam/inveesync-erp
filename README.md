@@ -38,8 +38,8 @@ Follow the steps below to run this project locally:
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
-   cd inveesync-assignment-master
+   git clone https://github.com/shivGam/inveesync-erp.git
+   cd inveesync-erp
    ```
 
 2. **Install dependencies**:
