@@ -1,35 +1,26 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { FaArrowUp } from "react-icons/fa";
+import { FaArrowUp, FaSave } from "react-icons/fa";
 import * as XLSX from "xlsx";
-import { validateItems } from "../../app/validators/ItemValidator";
 import { validateBoMs } from "@/app/validators/BoMValidator";
-import { useCreateBoMMutation } from "@/app/queries/BoM";
+import { useCreateBoMMutation, useFetchBoM } from "@/app/queries/BoM";
 import {
-  useCreateItemMutation,
   useFetchItems,
 } from "@/app/queries/ItemsMaster";
-import { bomSchema, itemSchema } from "../utils/constants";
+import { bomSchema } from "../utils/constants";
 import { useSelector, useDispatch } from "react-redux";
 
-import {
-  parseItemFile,
-  setItemFiles,
-  clearItemData,
-} from "@/app/feature/fileUploadItemSlice";
 import {
   parseBomFile,
   setBomFiles,
   clearBomData,
+  FILE_UPLOAD_KEY_BOM,
+  editBomCsvCell,
 } from "@/app/feature/fileUploadBomSlice";
+import { loadFromLocalStorage, saveToLocalStorage } from "../utils/localStorageUtils";
 
-const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
+const BomBulkModal = ({ type, isOpen, onClose, itemsTypes }) => {
   const dispatch = useDispatch();
-  const {
-    files: itemsFiles,
-    csvData: itemsCsvData,
-    isLoading: itemsLoading,
-    error: itemsError,
-  } = useSelector((state) => state.fileUploadItem);
+
   const {
     files: bomFiles,
     csvData: bomCsvData,
@@ -37,49 +28,61 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
     error: bomError,
   } = useSelector((state) => state.fileUploadBom);
   const { data: items } = useFetchItems();
+  const {data : boms} = useFetchBoM();
   const fileInputRef = useRef(null);
 
-  const [csvData,setCsvData] = useState([]);
+  const [csvData, setCsvData] = useState([]);
 
   // Determine which set of files/data to use based on the 'type'
-  const { files, csvInitialData, isLoading, error } =
-    type === "bom"
-      ? {
-          files: bomFiles,
-          csvInitialData: bomCsvData,
-          isLoading: bomLoading,
-          error: bomError,
-        }
-      : {
-          files: itemsFiles,
-          csvInitialData: itemsCsvData,
-          isLoading: itemsLoading,
-          error: itemsError,
-        };
+  const { files, csvInitialData, isLoading, error } = {
+    files: bomFiles,
+    csvInitialData: bomCsvData,
+    isLoading: bomLoading,
+    error: bomError,
+  };
 
   useEffect(() => {
-    if (csvInitialData) setCsvData(csvInitialData);
-  }, [csvInitialData]);
+    if (isOpen && csvInitialData && csvInitialData.length > 0) {
+      // Perform validation on the entire dataset
+      const validatedData = validateFn(
+        csvInitialData.map(item => item.row), 
+        false, 
+        itemsTypes, 
+        boms
+      );
 
-  const setFiles = type == "bom" ? setBomFiles : setItemFiles;
-  const clearData = type == "bom" ? clearBomData : clearItemData;
+      // Update the CSV data with validation results
+      setCsvData(validatedData.map((validationResult, index) => ({
+        ...csvInitialData[index],
+        isValid: validationResult.isValid,
+        reason: validationResult.reason
+      })));
+    } else if (isOpen) {
+      // Reset data when modal opens with no initial data
+      setCsvData([]);
+    }
+  }, [isOpen, csvInitialData, itemsTypes, items]);
 
-  const validateFn = type === "bom" ? validateBoMs : validateItems;
+  const setFiles = setBomFiles ;
+  const clearData = clearBomData;
+
+  const validateFn = validateBoMs
   const mutation =
-    type === "bom" ? useCreateBoMMutation() : useCreateItemMutation();
+   useCreateBoMMutation() 
+
 
   const handleFileSelection = useCallback(
     (selectedFiles) => {
       const fileArray = Array.from(selectedFiles);
-      dispatch(setFiles(fileArray));
-      const parseFile = type === "bom" ? parseBomFile : parseItemFile;
+      // dispatch(setFiles(fileArray));
+      const parseFile =  parseBomFile 
       if (fileArray.length > 0) {
         dispatch(
           parseFile({
             file: fileArray[0],
             validateFn,
             itemsTypes,
-            items,
+            boms,
             skipHeader: true,
           })
         );
@@ -100,41 +103,59 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   );
 
   const handleEditCell = (rowIndex, cellIndex, value) => {
-  
+
     setCsvData((prevData) => {
       // Create a deep copy of the data to avoid mutating the original state
       const newData = prevData.map((row) => ({
         ...row,
         row: [...row.row], // Ensure the nested array is also copied
       }));
-  
+
       // Update the specific cell
       newData[rowIndex].row[cellIndex] = value;
-  
+
       return newData; // Return the updated array
     });
   };
-  
+
 
   const validateEditedRow = (rowIndex) => {
     const rowData = csvData[rowIndex];
     const validationResult = validateRow(rowData.row); // Implement your validation logic
 
-    validationResult && setCsvData((prevData) => {
-      const newData = [...prevData];
-      newData[rowIndex] = { ...rowData, isValid: validationResult[0].isValid, reason: validationResult[0].reason };
-      return newData;
-    });
+    if (validationResult) {
+      setCsvData((prevData) => {
+        const newData = [...prevData];
+        newData[rowIndex] = {
+          ...rowData,
+          isValid: validationResult[0].isValid,
+          reason: validationResult[0].reason,
+        };
+        
+        // Load the existing full object from local storage
+        // const existingStoredData = loadFromLocalStorage(FILE_UPLOAD_KEY_BOM) || {};
+        
+        // // Update only the csvData part of the object
+        // const updatedStoredData = {
+        //   ...existingStoredData,
+        //   csvData: newData
+        // };
+        
+        // Save the entire updated object back to local storage
+        // saveToLocalStorage(FILE_UPLOAD_KEY_BOM, updatedStoredData);
+        dispatch(editBomCsvCell(newData))
+        
+        return newData;
+      });
+    }
   };
-
-
   const validateRow = (row) => {
     // Add your validation logic here
-    const validatedData = validateFn([row], false, itemsTypes, items);
+    const validatedData = validateFn([row], false, itemsTypes, boms);
     return validatedData;
   };
 
-  const schema = type === "bom" ? bomSchema : itemSchema;
+  const schema =bomSchema
   const schemaFields = Object.keys(schema);
 
   const handleUpload = () => {
@@ -148,7 +169,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
       return;
     }
 
-    const schema = type === "bom" ? bomSchema : itemSchema;
+    const schema =bomSchema
     const schemaFields = Object.keys(schema);
 
     // Iterate over valid rows and process data
@@ -157,21 +178,11 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
 
       // Map row data to the schema fields
       schemaFields.forEach((field, index) => {
-        if (type === "bom" || index < schemaFields.length - 2) {
           dataObject[field] = rowData.row[index];
-        }
+        
       });
 
-      if (type !== "bom") {
-        dataObject["customer_item_name"] = "Just to upload";
-        dataObject["additional_attributes"] = {
-          avg_weight_needed:
-            rowData.row.length >= 13
-              ? rowData.row[13]?.toString()?.toUpperCase()
-              : null,
-          scrap_type: rowData.row.length >= 14 ? rowData.row[14] : null,
-        };
-      }
+      
 
       mutation.mutate(dataObject, {
         onSuccess: () => {
@@ -206,7 +217,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
       return;
     }
 
-    const schema = type === "bom" ? bomSchema : itemSchema;
+    const schema =bomSchema
     const headers = Object.keys(schema);
 
     const errorReportData = invalidRows.map((rowData) => ({
@@ -229,7 +240,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
 
   const renderUploadSection = () => (
     <div
-      className="flex flex-col items-center justify-center w-full h-[20em] border rounded-lg cursor-pointer border-gray-300 border-dashed bg-[#F8F8F8]"
+      className="flex flex-col items-center justify-center w-full h-[20em] md:h-[16em] border rounded-lg cursor-pointer border-gray-300 border-dashed bg-[#F8F8F8]"
       onDragEnter={handleDragEvents}
       onDragLeave={handleDragEvents}
       onDragOver={handleDragEvents}
@@ -261,8 +272,13 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   );
 
   const handleClosePreviewModal = () => {
-    onClose();
-  };
+    if (typeof onClose === "function") {
+        onClose();
+    } else {
+        console.error("onClose is not a function");
+    }
+};
+
 
   // Discard upload and reset state
   const handleDiscardUpload = () => {
@@ -273,7 +289,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   return (
     <>
       <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-        <div className="modal-box bg-white text-gray-900 p-6 w-[95%] h-[80%] md:h-[70%] flex flex-col relative">
+        <div className="modal-box bg-white text-gray-900 p-6 w-[95%] h-fit flex flex-col relative">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-gray-900 border border-gray-900 rounded-full"
@@ -308,8 +324,8 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
 
         {csvData.length > 0 && (
           <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-[60]">
-            <div className="modal-box bg-white text-gray-900 p-6 min-w-[90vw] min-h-[90vh] flex flex-col relative">
-              <h3 className="font-bold text-lg mb-4">Preview Complete</h3>
+            <div className="modal-box bg-white text-gray-900 p-6 min-w-[90vw] max-h-[90vh]  flex flex-col relative pb-28 md:pb-20">
+              <h3 className="font-bold text-lg mb-4">Preview</h3>
 
               {/* Main Preview Table */}
               <div className="relative overflow-x-auto shadow-md sm:rounded-lg mb-6">
@@ -398,7 +414,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                                   className="w-full bg-white p-2 border border-gray-300 rounded-md"
                                 />
                               </td>
-                            )
+                            );
                           })}
                           <td className="px-6 py-4 text-center text-gray-900">
                             {rowData.reason || "No reason provided"}
@@ -409,7 +425,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                               className="p-2 rounded-full bg-green-400 hover:bg-green-500 text-white"
                               aria-label="Save"
                             >
-                              💾
+                              <FaSave />
                             </button>
                           </td>
                         </tr>
@@ -419,7 +435,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                 </table>
               </div>
 
-              <div className="absolute bottom-6 flex justify-between items-center w-full px-6">
+              <div className="absolute bottom-20 -left-3 md:left-0 md:bottom-6 flex justify-between items-center w-full px-6">
                 {/* Discard Button */}
                 <button
                   onClick={handleDiscardUpload}
@@ -439,7 +455,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                 </button>
                 <button
                   onClick={handleUpload}
-                  className="py-3 px-6 rounded-md bg-[#7480ff] text-white font-semibold"
+                  className="py-3 px-6 rounded-md bg-[#7480ff] text-white font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   Upload
                 </button>
@@ -462,4 +478,4 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   );
 };
 
-export default BulkUploadModal;
+export default BomBulkModal;

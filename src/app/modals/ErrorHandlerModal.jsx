@@ -5,24 +5,20 @@ import { FiX } from 'react-icons/fi';
 const ErrorHandlerModal = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-40">
-      {/* Modal Window */}
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl p-6">
-        {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 mb-4">
           <h1 className="text-xl font-semibold text-gray-800">
             Bulk Upload Error Management Console
           </h1>
           <button
             className="text-gray-500 hover:text-gray-800"
-            onClick={onClose} // Trigger onClose
+            onClick={onClose}
           >
             <FiX className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Section: Summary */}
           <div>
             <div className="bg-gray-100 p-4 rounded-md mb-6">
               <div className="w-full bg-gray-200 rounded-full h-6 mb-4">
@@ -52,7 +48,6 @@ const ErrorHandlerModal = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Right Section: Details */}
           <div>
             <div className="grid grid-cols-1 gap-4">
               <div>
@@ -61,7 +56,8 @@ const ErrorHandlerModal = ({ onClose }) => {
                 </label>
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                                className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
+
                   placeholder="Enter Supplier Item Name"
                 />
               </div>
@@ -71,7 +67,8 @@ const ErrorHandlerModal = ({ onClose }) => {
                 </label>
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                                className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
+
                   placeholder="Enter Process Description"
                 />
               </div>
@@ -81,7 +78,8 @@ const ErrorHandlerModal = ({ onClose }) => {
                 </label>
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                                className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
+
                   placeholder="Enter Quality Check"
                 />
               </div>
@@ -91,7 +89,8 @@ const ErrorHandlerModal = ({ onClose }) => {
                 </label>
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                                className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
+
                   placeholder="Enter Conversion Ratio"
                 />
               </div>
@@ -103,7 +102,7 @@ const ErrorHandlerModal = ({ onClose }) => {
               </button>
               <button
                 className="btn btn-error w-1/2 ml-2"
-                onClick={onClose} // Trigger onClose
+                onClick={onClose}
               >
                 Cancel Upload
               </button>

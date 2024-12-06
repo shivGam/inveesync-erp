@@ -1,102 +1,154 @@
-'use client';
-import React, { useState } from 'react';
-import { 
-  FiAlertTriangle, 
-  FiChevronRight, 
-  FiTool,
-  FiAlertCircle 
-} from 'react-icons/fi';
-import ErrorHandlerModal from "../modals/ErrorHandlerModal";
+"use client";
+import React, { useState, useMemo } from "react";
+import { FiAlertTriangle, FiChevronRight, FiTool } from "react-icons/fi";
+import BulkUploadModal from "../modals/BulkUploadModal";
+import BomBulkModal from "../modals/BomBulkModal";
+import { useFetchItems } from "../queries/ItemsMaster";
+import { useFetchBoM } from "../queries/BoM";
+import { usePendingSetup } from "../hooks/usePendingSetup";
+import Loading from "./Loading";
 
 const PendingSetup = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState(null);
+  const [selectedRowIndex, setSelectedRowIndex] = useState(null);
 
-  const pendingItems = [
-    {
-      title: 'Steel Pipe Grade A',
-      description: 'Missing UoM',
-      href: '/resolve/steel-pipe',
-      severity: 'high',
-    },
-    {
-      title: 'Assembly X23',
-      description: 'Incomplete components',
-      href: '/resolve/assembly-x23',
-      severity: 'medium',
-    },
-  ];
+  // Fetch items and BOMs
+  const { data: items = [], isLoading: itemsLoading } = useFetchItems();
+  const { data: boms = [], isLoading: bomsLoading } = useFetchBoM();
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  // Existing pendingItems logic remains the same...
+  const pendingItems = usePendingSetup(items, boms);
+
+  const openModal = (type, rowIndex) => {
+    setModalType(type);
+    setSelectedRowIndex(rowIndex);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalType(null);
+    setSelectedRowIndex(null);
+  };
+
+  const loading = itemsLoading || bomsLoading;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-white to-secondary/10 flex flex-col flex-1 overflow-auto">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl pt-1 font-extrabold text-gray-900 flex items-center gap-3 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            <FiTool className="text-primary" />
-            Pending Setup
-          </h1>
+    <div className="md:min-w-[20%] h-full md:h-[calc(100vh-60px)] border-l border-gray-200 bg-white py-6 px-3 overflow-auto">
+      <div className="flex items-center justify-between mb-6 border-b pb-3 border-gray-200">
+        <div className="flex items-center gap-3">
+          <FiTool className="text-primary w-6 h-6 animate-pulse md:animate-none" />
+          <h2 className="text-xl font-bold text-blue-900">Pending Jobs</h2>
         </div>
+        {/* <div className="badge bg-blue-100 text-blue-800 border-blue-200 font-semibold w-28 py-4">
+          {pendingItems.length} pending
+        </div> */}
       </div>
 
-      <div className="container mx-auto px-4 py-6 md:flex-1 flex flex-col">
-        {/* Warning Card */}
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
-          <div 
-            className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl shadow-xl hover:scale-105 transition-transform duration-300 ease-in-out"
-          >
-            <div className="stat p-6">
-              <div className="stat-figure text-warning opacity-70">
-                <FiAlertCircle size={32} />
-              </div>
-              <div className="stat-title text-gray-700 font-medium">Pending Items</div>
-              <div className="stat-value text-gray-900">{pendingItems.length}</div>
-              <div className="stat-desc text-gray-600 mt-1">Requires immediate attention</div>
-            </div>
-          </div>
+      {loading ? (
+        <div className="text-center text-gray-500 py-6 animate-pulse">
+          Analyzing setup requirements...
+          <Loading />
         </div>
-
-        {/* Pending Items List */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl  p-6 overflow-auto space-y-4">
+      ) : pendingItems.length === 0 ? (
+        <div className="text-center text-green-700 bg-green-50 py-6 rounded-lg border border-green-200">
+          🎉 All setup requirements are complete!
+        </div>
+      ) : (
+        <div className="space-y-4">
           {pendingItems.map((item, index) => (
             <div
               key={index}
-              className="border border-dashed border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 ease-in-out"
+              className={`
+                card transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg
+                ${
+                  item.severity === "high"
+                    ? "bg-red-50 border-red-200 hover:bg-red-100"
+                    : "bg-yellow-50 border-yellow-200 hover:bg-yellow-100"
+                }
+                border shadow-sm
+              `}
             >
-              <div className="p-4 flex flex-col items-center  gap-4">
-              <div className='p-4 w-fit bg-yellow-100/50 rounded-full mx-auto'><FiAlertTriangle className="text-warning" size={24} /></div>
-                <div className="flex-1 text-center">
-                  <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3">{item.description}</p>
+              <div className="card-body p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <FiAlertTriangle
+                      className={`
+                        w-6 h-6 
+                        ${
+                          item.severity === "high"
+                            ? "text-red-500 animate-bounce"
+                            : "text-yellow-500"
+                        }
+                      `}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h3
+                      className={`
+                      font-bold text-base leading-tight mb-1
+                      ${
+                        item.severity === "high"
+                          ? "text-red-900"
+                          : "text-yellow-600"
+                      }
+                    `}
+                    >
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-0">
+                      {item.description}
+                    </p>
+                    {/* <button
+                      onClick={() => openModal(item.type, item.rowIndex)}
+                      className={`
+                        btn btn-sm gap-2 w-full 
+                        ${
+                          item.severity === "high"
+                            ? "btn-error text-white hover:bg-red-700"
+                            : "btn-warning text-white hover:bg-yellow-600"
+                        }
+                        transition-all duration-300
+                      `}
+                    >
+                      Resolve Now
+                      <FiChevronRight className="w-4 h-4" />
+                    </button> */}
+                  </div>
                 </div>
-                <span
-                  className="btn btn-warning btn-sm flex items-center gap-2"
-                >
-                  Resolve
-                  <FiChevronRight />
-                </span>
               </div>
             </div>
           ))}
         </div>
+      )}
 
-        {/* Footer Action */}
-        {pendingItems.length > 0 && (
-          <div className="mt-6 text-center">
-            <button
-              className="btn btn-ghost text-primary hover:bg-primary/10"
-              onClick={openModal}
-            >
-              Check Error Module
-            </button>
-          </div>
-        )}
-      </div>
+      {isModalOpen && modalType === "sell_item" && (
+        <BulkUploadModal
+          type="sell_item"
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          highlightRowIndex={selectedRowIndex}
+        />
+      )}
 
-      {/* Modal */}
-      {isModalOpen && <ErrorHandlerModal onClose={closeModal} />}
+      {isModalOpen && modalType === "purchase_item" && (
+        <BulkUploadModal
+          type="purchase_item"
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          highlightRowIndex={selectedRowIndex}
+        />
+      )}
+
+      {isModalOpen && modalType === "component_item" && (
+        <BomBulkModal
+          type="component_item"
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          highlightRowIndex={selectedRowIndex}
+        />
+      )}
     </div>
   );
 };

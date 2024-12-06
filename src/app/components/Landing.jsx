@@ -1,10 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
+import { useQuery } from "react-query";
 import ItemsMaster from "./LandingComponents/ItemsMaster";
-import Processes from "./LandingComponents/Processes";
 import BillsOfMaterials from "./LandingComponents/BillsOfMaterials";
-import ProcessSteps from "./LandingComponents/ProcessSteps";
 import {
   FiBox,
   FiSettings,
@@ -14,106 +13,159 @@ import {
   FiCheckSquare,
   FiAlertCircle,
 } from "react-icons/fi";
+import { useFetchBoM } from "../queries/BoM";
+import { useFetchItems } from "../queries/ItemsMaster";
+import { usePendingSetup } from "../hooks/usePendingSetup";
 
-const Landing = ({ activeItem: activeTab, setActiveItem: setActiveTab }) => {
-  // Render Components for each tab
+const Landing = () => {
+  const [activeTab, setActiveTab] = useState("Items Master");
+
+  // Fetch items and BOM data
+  const { data: itemsData, isLoading: isItemsLoading } = useFetchItems();
+  const { data: bomData, isLoading: isBomLoading } = useFetchBoM();
+
+  // Count items using a for loop
+  const itemCount = useMemo(() => {
+    if (!itemsData) return 0;
+
+    let count = 0;
+    for (let i = 0; i < itemsData.length; i++) {
+      if (!itemsData[i].is_deleted) {
+        count++;
+      }
+    }
+    return count;
+  }, [itemsData]);
+
+  // Count BOMs using a for loop
+  const bomCount = useMemo(() => {
+    if (!bomData) return 0;
+
+    return bomData.length;
+  }, [bomData]);
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case "Items Master":
         return <ItemsMaster />;
-      case "Processes":
-        return <Processes />;
+
       case "Bill of Materials":
         return <BillsOfMaterials />;
-      case "Process Steps":
-        return <ProcessSteps />;
+
       default:
         return <ItemsMaster />;
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-white to-secondary/10 flex flex-col flex-1 overflow-auto">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            <FiSettings className="text-primary" />
-            Data Onboarding
-          </h1>
+  // Reusable card component for metrics
+  const MetricCard = ({ title, count, icon: Icon, bgColor, textColor, loadingState }) => (
+    <div className={`
+      relative group
+      rounded-3xl overflow-hidden
+      transition-all duration-500 ease-in-out
+      ${bgColor} 
+      transform hover:-translate-y-2 hover:scale-105
+      shadow-2xl hover:shadow-[0_0_30px_rgba(0,0,0,0.2)]
+      w-full md:w-[31.5%]
+      border-2 border-opacity-30
+    `}>
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div className="relative p-6 z-10">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm md:text-lg font-semibold text-gray-800 w-full text-center">{title}</h3>
         </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-6 md:flex-1 flex flex-col">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {[
-            {
-              icon: FiTrendingUp,
-              iconColor: "text-primary",
-              title: "Active Processes",
-              value: "12",
-              desc: "↗︎ 2 Processes added this week",
-              bgGradient: "from-blue-50 to-blue-100"
-            },
-            {
-              icon: FiCheckSquare,
-              iconColor: "text-success",
-              title: "Completed BOMs",
-              value: "28",
-              desc: "80% completion rate",
-              bgGradient: "from-green-50 to-green-100"
-            },
-            {
-              icon: FiAlertCircle,
-              iconColor: "text-warning",
-              title: "Pending BOMs",
-              value: "7",
-              desc: "Requires attention",
-              bgGradient: "from-yellow-50 to-yellow-100"
-            }
-          ].map(({ icon: Icon, iconColor, title, value, desc, bgGradient }) => (
-            <div 
-              key={title} 
-              className={`bg-gradient-to-br ${bgGradient} rounded-2xl shadow-xl hover:scale-105 transition-transform duration-300 ease-in-out`}
-            >
-              <div className="stat p-6">
-                <div className={`stat-figure ${iconColor} opacity-70`}>
-                  <Icon size={32} />
-                </div>
-                <div className="stat-title text-gray-700 font-medium">{title}</div>
-                <div className="stat-value text-gray-900">{value}</div>
-                <div className="stat-desc text-gray-600 mt-1">{desc}</div>
-              </div>
+        <div className="flex items-center justify-center space-x-2">
+          <span className={`text-3xl md:text-4xl font-bold ${textColor} text-center`}>
+            {loadingState ? "..." : count}
+          </span>
+          {Icon && (
+            <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full">
+              <Icon className="text-white" />
             </div>
-          ))}
+          )}
+        </div>
+        <p className="text-xs md:text-sm text-gray-600 mt-2 opacity-70 text-center">
+          {title === "Items Master"
+            ? "Total active items"
+            : title === "Bills Of Materials"
+              ? "Total active BoMs"
+              : "Entries requiring review"}
+        </p>
+      </div>
+    </div>
+  );
+
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f7fa] to-[#e6eef3] w-full flex flex-col">
+      <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
+        {/* Metrics Section */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10">
+
+
+          <MetricCard
+            title="Bills Of Materials"
+            count={bomCount}
+            bgColor="bg-green-50/70"
+            textColor="text-green-600"
+            loadingState={isBomLoading}
+          />
+
+          <MetricCard
+            title="Pending Jobs"
+            count={
+              !isBomLoading && !isItemsLoading
+                ? usePendingSetup(itemsData, bomData)?.length
+                : 0
+            }
+            bgColor="bg-yellow-50/70"
+            textColor="text-yellow-600"
+            loadingState={isBomLoading || isItemsLoading}
+          />
+
+          <MetricCard
+            title="Items Master"
+            count={itemCount}
+            bgColor="bg-blue-50/70"
+            textColor="text-blue-600"
+            loadingState={isItemsLoading}
+          />
         </div>
 
-        {/* Tabs */}
-        <div className="tabs tabs-boxed bg-white/70 backdrop-blur-md rounded-xl mb-6 p-1 shadow-md">
-          {[
-            { label: "Items Master", icon: FiBox },
-            { label: "Processes", icon: FiSettings },
-            { label: "Bill of Materials", icon: FiLayers },
-            { label: "Process Steps", icon: FiList },
-          ].map(({ label, icon: Icon }) => (
-            <button
-              key={label}
-              className={`tab flex-1 h-14 flex items-center justify-center gap-2 rounded-lg transition-all duration-300 ${
-                activeTab === label
-                  ? "bg-gradient-to-r from-primary to-secondary text-white shadow-lg"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-primary"
-              }`}
-              onClick={() => setActiveTab(label)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs Section */}
+<div className="mb-8">
+  <div className="flex justify-center w-full">
+    <div className="flex w-full bg-transparent p-1.5 rounded-xl shadow-xl border-2 border-gray-200">
+      {["Items Master", "Bill of Materials"].map((tab) => (
+        <button
+          key={tab}
+          className={`
+            flex-1 px-6 py-3
+            rounded-xl 
+            text-sm 
+            font-medium 
+            transition-all 
+            duration-300 
+            ease-in-out
+            flex items-center justify-center gap-2
+            ${activeTab === tab
+              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/50"
+              : "text-gray-600 hover:bg-gray-200 hover:shadow-md"
+            }
+          `}
+          onClick={() => setActiveTab(tab)}
+        >
+          {tab === "Items Master" ? <FiBox /> : <FiLayers />}
+          {tab}
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
 
-        {/* Content Area */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-6 md:h-96 overflow-auto">
+
+        {/* Active Tab Content */}
+        <div className="bg-white rounded-xl shadow-2xl border-2 border-gray-200 overflow-hidden animate-fade-in">
           {renderActiveTab()}
         </div>
       </div>

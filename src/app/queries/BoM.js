@@ -1,18 +1,20 @@
-import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { createBoM, updateBoM, deleteBoM, getBoM, getItems } from '../services/BoM';
+import { useQuery, useMutation, useQueryClient } from "react-query";
+import {
+  createBoM,
+  updateBoM,
+  deleteBoM,
+  getBoM,
+  getItems,
+} from "../services/BoM";
 
 // Fetch BoM Data
 export const useFetchBoM = () => {
-  return useQuery('bom', getBoM, {
-    staleTime: 10000,
-  });
+  return useQuery("bom", getBoM, {});
 };
 
 // Fetch Items Data
 export const useFetchItems = () => {
-  return useQuery('items', getItems, {
-    staleTime: 10000,
-  });
+  return useQuery("items", getItems, {});
 };
 
 // Create BoM Mutation
@@ -20,11 +22,11 @@ export const useCreateBoMMutation = () => {
   const queryClient = useQueryClient();
   return useMutation(createBoM, {
     onSuccess: () => {
-      queryClient.invalidateQueries('bom');
+      queryClient.invalidateQueries("bom");
     },
     onError: (error) => {
-      console.error('Create BoM Error:', error);
-    }
+      console.error("Create BoM Error:", error);
+    },
   });
 };
 
@@ -33,11 +35,11 @@ export const useUpdateBoMMutation = () => {
   const queryClient = useQueryClient();
   return useMutation(updateBoM, {
     onSuccess: () => {
-      queryClient.invalidateQueries('bom');
+      queryClient.invalidateQueries("bom");
     },
     onError: (error) => {
-      console.error('Update BoM Error:', error);
-    }
+      console.error("Update BoM Error:", error);
+    },
   });
 };
 
@@ -46,10 +48,10 @@ export const useDeleteBoMMutation = () => {
   const queryClient = useQueryClient();
   return useMutation(deleteBoM, {
     onSuccess: () => {
-      queryClient.invalidateQueries('bom');
+      queryClient.invalidateQueries("bom");
     },
     onError: (error) => {
-      console.error('Delete BoM Error:', error);
-    }
+      console.error("Delete BoM Error:", error);
+    },
   });
 };

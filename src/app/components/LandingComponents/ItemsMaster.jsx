@@ -1,497 +1,493 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   useCreateItemMutation,
   useDeleteItemMutation,
   useFetchItems,
   useUpdateItemMutation,
 } from "@/app/queries/ItemsMaster";
-import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus } from "react-icons/fa";
-import Select from "react-select";
+import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaUpload,
+  FaSearch,
+  FaEye,
+} from "react-icons/fa";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Loading from "../Loading";
+import { ItemFormModal } from "@/app/modals/ItemModal";
+import BulkUploadModal from "@/app/modals/BulkUploadModal";
+import { useQueryClient } from "react-query";
+import { useSelector } from "react-redux";
+import ItemBulkModal from "@/app/modals/ItemBulkModal";
+import ErrorCard from "../ErrorCard";
 
+const VALID_TYPES = ["sell", "purchase"];
+const VALID_UOMS = ["kgs", "kg", "nos", "no"];
 
-const ItemFormModal = ({
-  isOpen,
-  onClose,
-  onSave,
-  initialData,
-  tenantId = 2,
-}) => {
-  const [formData, setFormData] = useState(
-    initialData || {
-      internal_item_name: '',
-      item_description: '',
-      uom: '',
-      type: '',
-      max_buffer: '',
-      min_buffer: '',
-      customer_item_name: '',
-      is_job_work: false,
-      created_by: 'user1',
-      last_updated_by: 'user2',
-      additional_attributes: {
-        drawing_revision_number: '',
-        drawing_revision_date: '',
-        avg_weight_needed: '',
-        scrap_type: '',
-        shelf_floor_alternate_name: '',
-      },
-      tenant_id: 2,
-    }
-  );
+const validateItem = (newItem) => {
+  const errors = [];
 
-  const { data: items, isLoading, error } = useFetchItems();
+  if (!newItem.internal_item_name)
+    errors.push("Internal item name is required.");
 
-  const handleChange = (e, name) => {
-    const value = name === 'is_job_work' ? e.target.checked : e.target.value;
-    setFormData({ ...formData, [name]: value });
-  };
+  if (!newItem.type || !VALID_TYPES.includes(newItem.type.toLowerCase())) {
+    errors.push(`Type must be one of: ${VALID_TYPES.join(", ")}`);
+  }
 
-  const handleAdditionalAttributeChange = (e, name) => {
-    const value = e.target.value;
-    setFormData({
-      ...formData,
-      additional_attributes: { ...formData.additional_attributes, [name]: value },
-    });
-  };
+  if (!newItem.uom || !VALID_UOMS.includes(newItem.uom.toLowerCase())) {
+    errors.push(`UoM must be one of: ${VALID_UOMS.join(", ")}`);
+  }
 
-  const validateForm = () => {
-    const {
-      internal_item_name,
-      type,
-      uom,
-      max_buffer,
-      min_buffer,
-      customer_item_name,
-      additional_attributes,
-    } = formData;
+  if (["sell", "purchase"].includes(newItem.type.toLowerCase())) {
+    const minBuffer = parseFloat(newItem.min_buffer);
+    const maxBuffer = parseFloat(newItem.max_buffer);
 
-    if (!internal_item_name || !type || !uom || !max_buffer || !min_buffer || !customer_item_name) {
-      return false;
-    }
+    if (isNaN(minBuffer) || isNaN(maxBuffer))
+      errors.push("Buffer values must be valid numbers.");
+    if (maxBuffer < minBuffer)
+      errors.push(
+        "Maximum buffer must be greater than or equal to minimum buffer."
+      );
+    if (!newItem.max_buffer) errors.push("Max buffer is required.");
+    if (!newItem.min_buffer) errors.push("Min buffer is required.");
+  }
 
+  if (
+    newItem.type.toLowerCase() === "sell" &&
+    !newItem.additional_attributes?.scrap_type
+  ) {
+    errors.push("Scrap type is required for 'sell' items.");
+  }
 
-    if (
-      !additional_attributes.drawing_revision_number ||
-      !additional_attributes.drawing_revision_date ||
-      !additional_attributes.avg_weight_needed ||
-      !additional_attributes.scrap_type ||
-      !additional_attributes.shelf_floor_alternate_name
-    ) {
-      return false;
-    }
+  if (
+    newItem.additional_attributes?.avg_weight_needed === undefined ||
+    newItem.additional_attributes?.avg_weight_needed === ""
+  ) {
+    errors.push("Average weight needed must be specified.");
+  }
 
+  if (!newItem.additional_attributes)
+    errors.push("Additional attributes are required.");
 
-    const isDuplicate = items?.some(
-      (item) =>
-        item.internal_item_name === internal_item_name &&
-        item.tenant_id === tenantId
-    );
-    if (isDuplicate) {
-      alert('An item with this name already exists for the tenant.');
-      return false;
-    }
-
-    return true;
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-[700px] max-w-full">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-900">Add/Edit Item</h2>
-          <button onClick={onClose} className="text-red-600">
-            <FaTimes />
-          </button>
-        </div>
-        <div className="overflow-y-auto max-h-[500px] mt-4">
-          <form className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">Item Name</label>
-              <input
-                type="text"
-                value={formData.internal_item_name}
-                onChange={(e) => handleChange(e, 'internal_item_name')}
-              className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                placeholder="Enter item name"
-              />
-            </div>
-
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">Item Description</label>
-              <input
-                type="text"
-                value={formData.item_description}
-                onChange={(e) => handleChange(e, 'item_description')}
-              className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                placeholder="Enter item description"
-              />
-            </div>
-
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">Type</label>
-              <select
-                value={formData.type}
-                onChange={(e) => handleChange(e, 'type')}
-                className="select select-bordered w-full bg-white text-gray-900 focus:outline-none"
-              >
-                <option value="">Select type</option>
-                <option value="sell">Sell</option>
-                <option value="purchase">Purchase</option>
-                <option value="component">Component</option>
-              </select>
-            </div>
-
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">UoM</label>
-              <input
-                type="text"
-                value={formData.uom}
-                onChange={(e) => handleChange(e, 'uom')}
-              className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                placeholder="Enter UoM"
-              />
-            </div>
-
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">Max Buffer</label>
-              <input
-                type="number"
-                value={formData.max_buffer}
-                onChange={(e) => handleChange(e, 'max_buffer')}
-              className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                placeholder="Enter max buffer"
-                min="0"
-              />
-            </div>
-
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">Min Buffer</label>
-              <input
-                type="number"
-                value={formData.min_buffer}
-                onChange={(e) => handleChange(e, 'min_buffer')}
-              className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                placeholder="Enter min buffer"
-                min="0"
-              />
-            </div>
-
-
-            <div className="w-full">
-              <label className="block font-semibold text-gray-700">Customer Item Name</label>
-              <input
-                type="text"
-                value={formData.customer_item_name}
-                onChange={(e) => handleChange(e, 'customer_item_name')}
-              className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                placeholder="Enter customer item name"
-              />
-            </div>
-
-
-            <div className="w-full sm:col-span-2">
-              <h3 className="font-semibold mb-2 text-gray-900">Additional Attributes</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-gray-700">Drawing Revision Number</label>
-                  <input
-                    type="text"
-                    value={formData.additional_attributes.drawing_revision_number}
-                    onChange={(e) => handleAdditionalAttributeChange(e, 'drawing_revision_number')}
-                  className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700">Drawing Revision Date</label>
-                  <input
-                    type="date"
-                    value={formData.additional_attributes.drawing_revision_date}
-                    onChange={(e) => handleAdditionalAttributeChange(e, 'drawing_revision_date')}
-                  className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700">Average Weight Needed</label>
-                  <input
-                    type="number"
-                    value={formData.additional_attributes.avg_weight_needed}
-                    onChange={(e) => handleAdditionalAttributeChange(e, 'avg_weight_needed')}
-                  className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700">Scrap Type</label>
-                  <input
-                    type="text"
-                    value={formData.additional_attributes.scrap_type}
-                    onChange={(e) => handleAdditionalAttributeChange(e, 'scrap_type')}
-                  className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700">Shelf Floor Alternate Name</label>
-                  <input
-                    type="text"
-                    value={formData.additional_attributes.shelf_floor_alternate_name}
-                    onChange={(e) => handleAdditionalAttributeChange(e, 'shelf_floor_alternate_name')}
-                  className="input input-borderd w-full bg-white text-gray-900 disabled:bg-white disabled:border-gray-200 disabled:placeholder:text-gray-900 focus:outline-none border border-gray-200"
-                  />
-                </div>
-              </div>
-            </div>
-
-
-            <div className="flex items-center space-x-2 sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={formData.is_job_work}
-                onChange={(e) => handleChange(e, 'is_job_work')}
-                className="checkbox checkbox-primary"
-              />
-              <label className="font-semibold text-gray-900">Is Job Work</label>
-            </div>
-          </form>
-        </div>
-
-
-        <div className="mt-6 flex justify-end space-x-2">
-          <button className="btn btn-outline" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              if (validateForm()) {
-                onSave(formData);
-                onClose();
-              }
-            }}
-            disabled={!validateForm()}
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return errors;
 };
 
-
-
-const ItemMasterRow = React.memo(({ item, onEdit, onDelete }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableItem, setEditableItem] = useState(item);
-
-  const handleEditClick = () => {
-    setIsEditing(true);
-    setEditableItem({ ...item });
-  };
-
-  const handleSaveClick = () => {
-    setIsEditing(false);
-    onEdit(editableItem);
-  };
-
-  const handleCancelClick = () => {
-    setIsEditing(false);
-    setEditableItem(item);
-  };
-
-  const handleChange = (value, field) => {
-    setEditableItem({
-      ...editableItem,
-      [field]: value,
-    });
-  };
-
-  const validateRow =
-    !editableItem.internal_item_name ||
-    !editableItem.type ||
-    !editableItem.uom ||
-    !editableItem.avg_weight_needed;
-
-  const typeOptions = useMemo(
-    () => [
-      { value: "sell", label: "Sell" },
-      { value: "purchase", label: "Purchase" },
-      { value: "component", label: "Component" },
-    ],
-    []
-  );
-
-  return (
-    <tr className="border-gray-200 text-gray-900 hover:bg-gray-100 text-center">
-      <td className="text-left">
-        {isEditing ? (
-          <input
-            type="text"
-            value={editableItem.internal_item_name}
-            onChange={(e) => handleChange(e.target.value, "internal_item_name")}
-            className="input input-bordered w-full focus:outline-none bg-white text-gray-900 py-2"
-          />
-        ) : (
-          item.internal_item_name
-        )}
-      </td>
-      <td>
-        {isEditing ? (
-          <Select
-            value={typeOptions.find(
-              (option) => option.value === editableItem.type
-            )}
-            onChange={(selected) => handleChange(selected.value, "type")}
-            options={typeOptions}
-            placeholder="Select Type"
-            className="react-select text-gray-900 bg-white"          />
-        ) : (
-          item.type
-        )}
-      </td>
-      <td>
-        {isEditing ? (
-          <input
-            type="text"
-            value={editableItem.uom}
-            onChange={(e) => handleChange(e.target.value, "uom")}
-            className="input input-bordered w-full focus:outline-none bg-white text-gray-900 py-2"
-          />
-        ) : (
-          item.uom
-        )}
-      </td>
-      <td>{item.additional_attributes.avg_weight_needed}</td>
-      <td className="">
-        <span
-          className={`badge text-sm py-3 text-gray-900 border ${
-            validateRow ? "badge-warning" : "bg-green-200 border-green-300"
-          }`}
-        >
-          {validateRow ? "Pending" : "Completed"}
-        </span>
-      </td>
-      <td className="flex justify-center space-x-2">
-        {!isEditing ? (
-          <>
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={handleEditClick}
-            >
-              <FaEdit />
-            </button>
-            <button
-              className="btn btn-sm btn-error"
-              onClick={() => onDelete(item)}
-            >
-              <FaTrash />
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              className="btn btn-sm btn-success"
-              onClick={handleSaveClick}
-            >
-              <FaSave />
-            </button>
-            <button
-              className="btn btn-sm btn-error"
-              onClick={handleCancelClick}
-            >
-              <FaTimes />
-            </button>
-          </>
-        )}
-      </td>
-    </tr>
-  );
-});
-
 const ItemsMaster = () => {
-  const { data, isLoading, isError } = useFetchItems();
+  const { data, isLoading, isError,error } = useFetchItems();
   const createItemMutation = useCreateItemMutation();
   const updateItemMutation = useUpdateItemMutation();
   const deleteItemMutation = useDeleteItemMutation();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [isBulkModalOpen, setBulkModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const queryClient = useQueryClient();
 
-  const handleEditItem = (updatedItem) => {
-    updateItemMutation.mutate({ itemId: updatedItem.id, formData: updatedItem });
+  const [itemsTypes, setItemsTypes] = useState({});
+
+  useEffect(() => {
+    // Check if itemsData is available and is an array
+    if (data && Array.isArray(data)) {
+      // Create a new object to avoid mutating the existing state
+      const newItemsTypes = {};
+
+      // Loop through the data and transform it into the desired object format
+      data.forEach((item) => {
+        if (item.id && item.type) {
+          newItemsTypes[item.id] = item.type;
+        }
+      });
+
+      // Update the state with the transformed object
+      setItemsTypes(newItemsTypes);
+    }
+  }, [data]);
+  const { csvData } = useSelector((state) => state.fileUploadItem);
+
+  const handleEditClick = (item) => {
+    setEditItem(item);
+    setIsModalOpen(true);
   };
 
-  const handleDeleteItem = ( itemToDelete ) => {
-    deleteItemMutation.mutate({ itemId: itemToDelete.id });
+  const handleDeleteItem = (itemToDelete) => {
+    deleteItemMutation.mutate(itemToDelete.id, {
+      onSuccess: () => toast.success("Item deleted successfully!"),
+      onError: (err) =>
+        toast.error(
+          `Failed to delete the item, ${err?.response?.data?.message}`
+        ),
+      onSettled: () => setBulkModalOpen(false),
+    });
   };
 
-  if (isLoading) {
-    return <Loading />;
-  }
+  const handleSaveItem = (newItem) => {
+    const validationErrors = validateItem(newItem);
 
-  if (isError) {
-    return <div className="text-center text-red-600">Error fetching data</div>;
-  }
+    if (validationErrors.length > 0) {
+      validationErrors.forEach((error) => toast.error(error));
+      return;
+    }
+
+    if (["sell", "purchase"].includes(newItem.type)) {
+      newItem.additional_attributes.min_buffer ??= 0;
+      newItem.additional_attributes.max_buffer ??= 0;
+    }
+
+    const mutation = editItem ? updateItemMutation : createItemMutation;
+    const action = editItem ? "updated" : "created";
+
+    mutation.mutate(
+      {
+        itemId: editItem?.id,
+        formData: {
+          ...newItem,
+          tenant_id: 2,
+          created_by: "current_user",
+          createdAt: editItem ? undefined : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Item ${action} successfully!`);
+          setIsModalOpen(false);
+          queryClient.invalidateQueries("items");
+        },
+        onError: () => toast.error(`Failed to ${action} item.`),
+      }
+    );
+  };
+
+  const filteredData = useMemo(() => {
+    if (!searchQuery) return data;
+    return data?.filter((item) =>
+      [item.internal_item_name, item.type, item.uom]
+        .join(" ")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
+    );
+  }, [data, searchQuery]);
+
+
+
+  const validateRow = (item) => {
+    try {
+      const errors = validateItem(item);
+      return errors.length > 0;
+    } catch {
+      return true;
+    }
+  };
+
+  const handleAddNewItem = () => {
+    setEditItem(null);
+    setIsModalOpen(true);
+  };
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">Items Master</h1>
-        <button
-          className="btn btn-primary text-white"
-          onClick={() => {
+    <div className="p-6 bg-transparent">
+      {/* Header Section */}
+      <div className="mb-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+            Items Master
+          </h1>
+        </div>
+
+        {/* Search and Actions Bar */}
+        <div className="flex flex-col md:flex-row justify-between space-y-4 md:space-y-0 md:space-x-4">
+          {/* Search Input */}
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FaSearch className="text-gray-400 hover:text-blue-500 transition-colors" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search items..."
+              className="
+                w-full 
+                pl-10 
+                pr-4 
+                py-3 
+                rounded-xl 
+                bg-white 
+                border 
+                border-gray-200 
+                focus:border-blue-500 
+                focus:ring 
+                focus:ring-blue-200 
+                focus:ring-opacity-50 
+                transition-all 
+                duration-300 
+                shadow-lg 
+                hover:shadow-xl
+                text-gray-700
+              "
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-4">
+            <button
+              className="
+                flex 
+                items-center 
+                px-4 
+                py-3 
+                bg-gradient-to-r 
+                from-blue-500 
+                to-indigo-600 
+                text-white 
+                rounded-xl 
+                hover:from-blue-600 
+                hover:to-indigo-700 
+                transition-all 
+                duration-300 
+                shadow-md 
+                hover:shadow-xl 
+                group
+              "
+              onClick={() => setBulkModalOpen(true)}
+            >
+              {csvData?.length === 0 ? (
+                <>
+                  <FaUpload className="mr-2 group-hover:rotate-12 transition-transform" />
+                  Bulk Upload
+                </>
+              ) : (
+                <>
+                  <FaEye className="mr-2 group-hover:scale-110 transition-transform" />
+                  View CSV
+                </>
+              )}
+            </button>
+            
+            <button
+              className="
+                flex 
+                items-center 
+                px-4 
+                py-3 
+                bg-gradient-to-r 
+                from-green-500 
+                to-emerald-600 
+                text-white 
+                rounded-xl 
+                hover:from-green-600 
+                hover:to-emerald-700 
+                transition-all 
+                duration-300 
+                shadow-md 
+                hover:shadow-xl 
+                group
+              "
+              onClick={handleAddNewItem}
+            >
+              <FaPlus className="mr-2 group-hover:rotate-180 transition-transform" />
+              Add Item
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Items Table */}
+      {!isLoading && data ? (
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
+                <tr className="text-gray-700">
+                  {["Item Name", "Type", "UoM", "Avg Weight", "Status", "Action"].map((header) => (
+                    <th 
+                      key={header} 
+                      className="
+                        px-6 
+                        py-4 
+                        text-left 
+                        font-semibold 
+                        uppercase 
+                        tracking-wider 
+                        text-xs
+                      "
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData?.length > 0 ? (
+                  filteredData?.map((item) => {
+                    const validation = validateRow(item);
+                    return (
+                      <tr
+                        key={item.id}
+                        className="
+                          hover:bg-blue-50/50 
+                          transition-colors 
+                          duration-300 
+                          border-b 
+                          border-gray-100
+                        "
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                          {item.internal_item_name}
+                        </td>
+                        <td className="px-6 py-4 text-center text-gray-700">
+                          {item.type}
+                        </td>
+                        <td className="px-6 py-4 text-center text-gray-700">
+                          {item.uom}
+                        </td>
+                        <td className="px-6 py-4 text-center text-gray-700">
+                          {item.additional_attributes?.avg_weight_needed?.toString()}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className={`
+                              px-3 
+                              py-1 
+                              rounded-full 
+                              text-xs 
+                              font-medium 
+                              ${
+                                validation 
+                                  ? "bg-yellow-100 text-yellow-800" 
+                                  : "bg-green-100 text-green-800"
+                              }
+                            `}
+                          >
+                            {validation ? "Pending" : "Completed"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center space-x-2">
+                            <button
+                              className="
+                                p-2 
+                                rounded-lg 
+                                bg-blue-50 
+                                text-blue-600 
+                                hover:bg-blue-100 
+                                transition-colors 
+                                group
+                              "
+                              onClick={() => handleEditClick(item)}
+                            >
+                              <FaEdit className="group-hover:scale-110 transition-transform" />
+                            </button>
+                            <button
+                              className="
+                                p-2 
+                                rounded-lg 
+                                bg-red-50 
+                                text-red-600 
+                                hover:bg-red-100 
+                                transition-colors 
+                                group
+                              "
+                              onClick={() => handleDeleteItem(item)}
+                            >
+                              <FaTrash className="group-hover:scale-110 transition-transform" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="text-center py-12">
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-24 w-24 text-gray-300"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1}
+                            d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                          />
+                        </svg>
+                        <h3 className="text-xl font-semibold text-gray-600">
+                          No Items Found
+                        </h3>
+                        <p className="text-gray-500 text-sm">
+                          {searchQuery
+                            ? "No items match your current filters"
+                            : "Start by adding a new item"}
+                        </p>
+                        <button
+                          onClick={handleAddNewItem}
+                          className="
+                            px-6 
+                            py-3 
+                            bg-gradient-to-r 
+                            from-blue-500 
+                            to-indigo-600 
+                            text-white 
+                            rounded-xl 
+                            hover:from-blue-600 
+                            hover:to-indigo-700 
+                            transition-all 
+                            duration-300 
+                            shadow-md 
+                            hover:shadow-xl
+                          "
+                        >
+                          Add New Item
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-20">
+          <Loading />
+        </div>
+      )}
+
+      {/* Modals would be placed here - preserving existing modal logic */}
+      {isError && <ErrorCard error={error}/>}
+
+      {isBulkModalOpen && (
+        <ItemBulkModal
+          isOpen={isBulkModalOpen}
+          onClose={() => setBulkModalOpen(false)}
+          type={"items"}
+          itemsTypes={itemsTypes}
+        />
+      )}
+
+      {isModalOpen && (
+        <ItemFormModal
+          isOpen={isModalOpen}
+          onClose={() => {
             setEditItem(null);
-            setIsModalOpen(true);
+            setIsModalOpen(false);
           }}
-        >
-          <FaPlus className="mr-2" /> Add Item
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="table table-auto w-full border border-gray-200">
-          <thead>
-            <tr className="bg-gray-100 text-gray-900 text-center">
-              <th className="px-4 py-3 text-left">Item Name</th>
-              <th className="px-4 py-3 text-center">Type</th>
-              <th className="px-4 py-3 text-center">UoM</th>
-              <th className="px-4 py-3 text-center">Avg Weight</th>
-              <th className="px-4 py-3 text-center">Status</th>
-              <th className="px-4 py-3 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.map((item) => (
-              <ItemMasterRow
-                key={item.id}
-                item={item}
-                onEdit={handleEditItem}
-                onDelete={handleDeleteItem}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <ItemFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={(newItem) => createItemMutation.mutate({formData:newItem})}
-        initialData={editItem}
-        tenantId={2}
-      />
+          onSave={handleSaveItem}
+          tenantId={2}
+          isLoading={createItemMutation.isLoading || updateItemMutation.isLoading}
+          isError={createItemMutation.isError || updateItemMutation.isError}
+          isEdit={!!editItem}
+          item={editItem}
+        />
+      )}
     </div>
   );
 };

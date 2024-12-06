@@ -1,11 +1,10 @@
-
 # InveeSync Assignment
 
 This project is a ERP system designed using **Next.js** and **Tailwind CSS**. It provides a user-friendly interface to manage processes, items, and materials effectively.
 
 ## Deployed Application
 
-The application is deployed and accessible at: [https://inveesync-erp.vercel.app/](https://inveesync-erp.vercel.app/)
+The application is deployed and accessible at: [https://invee-sync-frontend.vercel.app/](https://invee-sync-frontend.vercel.app/)
 
 ## Features
 - Create and manage Bills of Materials.
@@ -38,8 +37,8 @@ Follow the steps below to run this project locally:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/shivGam/inveesync-erp.git
-   cd inveesync-erp
+   git clone   
+   cd inveesync-frontend
    ```
 
 2. **Install dependencies**:

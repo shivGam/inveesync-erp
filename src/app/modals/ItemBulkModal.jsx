@@ -1,28 +1,24 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { FaArrowUp } from "react-icons/fa";
+import { FaArrowUp, FaSave } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { validateItems } from "../../app/validators/ItemValidator";
-import { validateBoMs } from "@/app/validators/BoMValidator";
-import { useCreateBoMMutation } from "@/app/queries/BoM";
 import {
   useCreateItemMutation,
   useFetchItems,
 } from "@/app/queries/ItemsMaster";
-import { bomSchema, itemSchema } from "../utils/constants";
+import { itemSchema } from "../utils/constants";
 import { useSelector, useDispatch } from "react-redux";
 
 import {
   parseItemFile,
   setItemFiles,
   clearItemData,
+  FILE_UPLOAD_KEY_ITEMS,
+  editItemsCsvCell,
 } from "@/app/feature/fileUploadItemSlice";
-import {
-  parseBomFile,
-  setBomFiles,
-  clearBomData,
-} from "@/app/feature/fileUploadBomSlice";
+import { loadFromLocalStorage, saveToLocalStorage } from "../utils/localStorageUtils";
 
-const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
+const ItemBulkModal = ({ type, isOpen, onClose, itemsTypes }) => {
   const dispatch = useDispatch();
   const {
     files: itemsFiles,
@@ -30,49 +26,52 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
     isLoading: itemsLoading,
     error: itemsError,
   } = useSelector((state) => state.fileUploadItem);
-  const {
-    files: bomFiles,
-    csvData: bomCsvData,
-    isLoading: bomLoading,
-    error: bomError,
-  } = useSelector((state) => state.fileUploadBom);
   const { data: items } = useFetchItems();
   const fileInputRef = useRef(null);
 
-  const [csvData,setCsvData] = useState([]);
+  const [csvData, setCsvData] = useState([]);
 
   // Determine which set of files/data to use based on the 'type'
-  const { files, csvInitialData, isLoading, error } =
-    type === "bom"
-      ? {
-          files: bomFiles,
-          csvInitialData: bomCsvData,
-          isLoading: bomLoading,
-          error: bomError,
-        }
-      : {
-          files: itemsFiles,
-          csvInitialData: itemsCsvData,
-          isLoading: itemsLoading,
-          error: itemsError,
-        };
+  const { files, csvInitialData, isLoading, error } = {
+    files: itemsFiles,
+    csvInitialData: itemsCsvData,
+    isLoading: itemsLoading,
+    error: itemsError,
+  };
 
   useEffect(() => {
-    if (csvInitialData) setCsvData(csvInitialData);
-  }, [csvInitialData]);
+    if (isOpen && csvInitialData && csvInitialData.length > 0) {
+      // Perform validation on the entire dataset
+      const validatedData = validateFn(
+        csvInitialData.map(item => item.row), 
+        false, 
+        itemsTypes, 
+        items
+      );
 
-  const setFiles = type == "bom" ? setBomFiles : setItemFiles;
-  const clearData = type == "bom" ? clearBomData : clearItemData;
+      // Update the CSV data with validation results
+      setCsvData(validatedData.map((validationResult, index) => ({
+        ...csvInitialData[index],
+        isValid: validationResult.isValid,
+        reason: validationResult.reason
+      })));
+    } else if (isOpen) {
+      // Reset data when modal opens with no initial data
+      setCsvData([]);
+    }
+  }, [isOpen, csvInitialData, itemsTypes, items]);
 
-  const validateFn = type === "bom" ? validateBoMs : validateItems;
-  const mutation =
-    type === "bom" ? useCreateBoMMutation() : useCreateItemMutation();
+  const setFiles = setItemFiles;
+  const clearData = clearItemData;
+
+  const validateFn = validateItems;
+  const mutation = useCreateItemMutation();
 
   const handleFileSelection = useCallback(
     (selectedFiles) => {
       const fileArray = Array.from(selectedFiles);
       dispatch(setFiles(fileArray));
-      const parseFile = type === "bom" ? parseBomFile : parseItemFile;
+      const parseFile = parseItemFile;
       if (fileArray.length > 0) {
         dispatch(
           parseFile({
@@ -100,33 +99,40 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   );
 
   const handleEditCell = (rowIndex, cellIndex, value) => {
-  
+
     setCsvData((prevData) => {
       // Create a deep copy of the data to avoid mutating the original state
       const newData = prevData.map((row) => ({
         ...row,
         row: [...row.row], // Ensure the nested array is also copied
       }));
-  
+
       // Update the specific cell
       newData[rowIndex].row[cellIndex] = value;
-  
+
       return newData; // Return the updated array
     });
   };
-  
 
   const validateEditedRow = (rowIndex) => {
     const rowData = csvData[rowIndex];
     const validationResult = validateRow(rowData.row); // Implement your validation logic
 
-    validationResult && setCsvData((prevData) => {
-      const newData = [...prevData];
-      newData[rowIndex] = { ...rowData, isValid: validationResult[0].isValid, reason: validationResult[0].reason };
-      return newData;
-    });
+    if (validationResult) {
+      setCsvData((prevData) => {
+        const newData = [...prevData];
+        newData[rowIndex] = {
+          ...rowData,
+          isValid: validationResult[0].isValid,
+          reason: validationResult[0].reason,
+        };
+        
+        // Load the existing full object from local storage
+        dispatch(editItemsCsvCell(newData))
+        return newData;
+      });
+    }
   };
-
 
   const validateRow = (row) => {
     // Add your validation logic here
@@ -134,7 +140,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
     return validatedData;
   };
 
-  const schema = type === "bom" ? bomSchema : itemSchema;
+  const schema = itemSchema;
   const schemaFields = Object.keys(schema);
 
   const handleUpload = () => {
@@ -148,7 +154,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
       return;
     }
 
-    const schema = type === "bom" ? bomSchema : itemSchema;
+    const schema = itemSchema;
     const schemaFields = Object.keys(schema);
 
     // Iterate over valid rows and process data
@@ -157,12 +163,12 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
 
       // Map row data to the schema fields
       schemaFields.forEach((field, index) => {
-        if (type === "bom" || index < schemaFields.length - 2) {
+        if (index < schemaFields.length - 2) {
           dataObject[field] = rowData.row[index];
         }
       });
 
-      if (type !== "bom") {
+      
         dataObject["customer_item_name"] = "Just to upload";
         dataObject["additional_attributes"] = {
           avg_weight_needed:
@@ -171,7 +177,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
               : null,
           scrap_type: rowData.row.length >= 14 ? rowData.row[14] : null,
         };
-      }
+      
 
       mutation.mutate(dataObject, {
         onSuccess: () => {
@@ -206,7 +212,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
       return;
     }
 
-    const schema = type === "bom" ? bomSchema : itemSchema;
+    const schema =itemSchema;
     const headers = Object.keys(schema);
 
     const errorReportData = invalidRows.map((rowData) => ({
@@ -273,7 +279,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   return (
     <>
       <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-        <div className="modal-box bg-white text-gray-900 p-6 w-[95%] h-[80%] md:h-[70%] flex flex-col relative">
+        <div className="modal-box bg-white text-gray-900 p-6 w-[95%] max-h-[80%] md:h-[70%] flex flex-col relative">
           <form method="dialog">
             <button
               className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-gray-900 border border-gray-900 rounded-full"
@@ -308,8 +314,8 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
 
         {csvData.length > 0 && (
           <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-[60]">
-            <div className="modal-box bg-white text-gray-900 p-6 min-w-[90vw] min-h-[90vh] flex flex-col relative">
-              <h3 className="font-bold text-lg mb-4">Preview Complete</h3>
+            <div className="modal-box bg-white text-gray-900 p-6 min-w-[90vw] max-h-[90vh]  flex flex-col relative pb-28 md:pb-20">
+            <h3 className="font-bold text-lg mb-4">Preview</h3>
 
               {/* Main Preview Table */}
               <div className="relative overflow-x-auto shadow-md sm:rounded-lg mb-6">
@@ -398,7 +404,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                                   className="w-full bg-white p-2 border border-gray-300 rounded-md"
                                 />
                               </td>
-                            )
+                            );
                           })}
                           <td className="px-6 py-4 text-center text-gray-900">
                             {rowData.reason || "No reason provided"}
@@ -409,7 +415,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                               className="p-2 rounded-full bg-green-400 hover:bg-green-500 text-white"
                               aria-label="Save"
                             >
-                              💾
+                              <FaSave />
                             </button>
                           </td>
                         </tr>
@@ -419,7 +425,7 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                 </table>
               </div>
 
-              <div className="absolute bottom-6 flex justify-between items-center w-full px-6">
+              <div className="absolute bottom-20 -left-3 md:left-0 md:bottom-6 flex justify-between items-center w-full px-6">
                 {/* Discard Button */}
                 <button
                   onClick={handleDiscardUpload}
@@ -439,7 +445,8 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
                 </button>
                 <button
                   onClick={handleUpload}
-                  className="py-3 px-6 rounded-md bg-[#7480ff] text-white font-semibold"
+                  disabled={csvData.some(row=>!row.isValid)}
+                  className="py-3 px-6 rounded-md bg-[#7480ff] text-white font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   Upload
                 </button>
@@ -462,4 +469,4 @@ const BulkUploadModal = ({ type, isOpen, onClose, itemsTypes }) => {
   );
 };
 
-export default BulkUploadModal;
+export default ItemBulkModal;
