@@ -1,45 +1,53 @@
-# InveeSync Assignment
+# Masterlist Management System | InveeSync Assisgnment
 
-This project is a ERP system designed using **Next.js** and **Tailwind CSS**. It provides a user-friendly interface to manage processes, items, and materials effectively.
+This project is an **ERP-based Masterlist Management System**, developed using **React.js** and **Tailwind CSS**, focused on simplifying the management of product-related master data. The application provides an intuitive interface to handle Items and Bills of Materials (BoM) with features like real-time validation, error reporting, and bulk upload capabilities.
+
+---
 
 ## Deployed Application
 
-The application is deployed and accessible at: [https://invee-sync-frontend.vercel.app/](https://invee-sync-frontend.vercel.app/)
+Access the live application at: [https://inveesync-erp.vercel.app/](https://inveesync-erp.vercel.app/)
+
+---
 
 ## Features
-- Create and manage Bills of Materials.
-- Add and manage items and processes.
-- Modular components for scalability.
-- Error handling and modals for enhanced user experience.
+
+### **Core Features**
+- **Masterlist Automation**: Streamlines master data management with automated workflows.
+- **Real-Time Validation**: Ensures data integrity with immediate feedback.
+- **CSV Operations**:
+  - Bulk upload and download of data.
+  - Error reporting with downloadable corrected files.
+- **User-Friendly Interface**:
+  - Responsive design for all device sizes.
+  - Clear navigation and actionable error messages.
+  - Pending data tracking and management.
 
 ## Libraries Used
 
-### Core Dependencies
-- **axios**: ^1.7.7
-- **flowbite**: ^2.5.2
-- **next**: ^15.0.3
-- **papaparse**: ^5.4.1
-- **react**: ^18.3.0
-- **react-dom**: ^18.3.0
-- **react-icons**: ^5.3.0
-- **react-query**: ^3.39.3
-- **react-select**: ^5.8.3
-- **react-toastify**: ^10.0.6
+### **Core Dependencies**
+- **React.js**: ^18.3.0 – Core framework for building UI.
+- **axios**: ^1.7.7 – For API communication.
+- **react-query**: ^3.39.3 – For state and server data synchronization.
+- **papaparse**: ^5.4.1 – CSV parsing for bulk upload/download.
+- **react-toastify**: ^10.0.6 – For notifications and error messages.
+- **react-select**: ^5.8.3 – Enhanced dropdown components.
 
-### Development Dependencies
-- **daisyui**: ^4.12.14
-- **postcss**: ^8
-- **tailwindcss**: ^3.4.1
+### **Styling**
+- **Tailwind CSS**: ^3.4.1 – For utility-first styling.
+- **Flowbite**: ^2.5.2 – Prebuilt UI components.
+- **daisyui**: ^4.12.14 – Tailwind component library.
+
+---
 
 ## Installation
 
-Follow the steps below to run this project locally:
+Follow these steps to run the project locally:
 
 1. **Clone the repository**:
    ```bash
-   git clone   
-   cd inveesync-frontend
-   ```
+   git clone https://github.com/shivGam/inveesync-erp.git
+   cd inveesync-erp
 
 2. **Install dependencies**:
    ```bash
@@ -52,14 +60,6 @@ Follow the steps below to run this project locally:
    ```
 
 4. Open your browser and navigate to `http://localhost:3000`.
-
-## File Structure
-
-- `src/app/components`: Contains reusable UI components.
-- `src/app/modals`: Modal components for various features.
-- `src/app/queries`: Contains API query configurations.
-- `src/app/services`: Handles API requests for BoM, items, and processes.
-- `src/app/utils`: Utility functions including Axios configurations.
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.
