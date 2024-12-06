@@ -19,7 +19,6 @@ import {
 import { useSelector } from "react-redux";
 import Loading from "../Loading";
 import Select from "react-select";
-import BulkUploadModal from "@/app/modals/BulkUploadModal";
 import { BomFormModal } from "@/app/modals/BomModal";
 import BomBulkModal from "@/app/modals/BomBulkModal";
 import ErrorCard from "../ErrorCard";

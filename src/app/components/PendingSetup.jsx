@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
 import { FiAlertTriangle, FiChevronRight, FiTool } from "react-icons/fi";
-import BulkUploadModal from "../modals/BulkUploadModal";
 import BomBulkModal from "../modals/BomBulkModal";
 import { useFetchItems } from "../queries/ItemsMaster";
 import { useFetchBoM } from "../queries/BoM";

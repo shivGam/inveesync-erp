@@ -61,7 +61,5 @@ Follow the steps below to run this project locally:
 - `src/app/services`: Handles API requests for BoM, items, and processes.
 - `src/app/utils`: Utility functions including Axios configurations.
 
-
-
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.

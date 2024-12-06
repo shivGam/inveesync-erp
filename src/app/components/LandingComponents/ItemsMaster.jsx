@@ -19,7 +19,6 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "../Loading";
 import { ItemFormModal } from "@/app/modals/ItemModal";
-import BulkUploadModal from "@/app/modals/BulkUploadModal";
 import { useQueryClient } from "react-query";
 import { useSelector } from "react-redux";
 import ItemBulkModal from "@/app/modals/ItemBulkModal";
