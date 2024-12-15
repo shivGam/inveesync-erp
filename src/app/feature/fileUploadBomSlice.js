@@ -15,27 +15,42 @@ export const parseBomFile = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Read the file
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "buffer" });
 
-      // Get the first sheet
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "buffer", raw:true });
+
+
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
 
-      // Convert to JSON, optionally skipping header
+
       const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        raw:true,
         header: skipHeader ? 1 : 0,
       });
-      const validatedData = validateFn(jsonData, true, itemsTypes, boms);
-      // Transform data to match your validation requirements
-      // const processedData = jsonData.map((row, index) => ({
-      //   row: Object.values(row),
-      //   rowNumber: index + 2, // +2 because Excel rows start at 1 and we might skip header
-      //   isValid: false, // You'll set this after validation
-      //   reason: '' // Placeholder for validation reason
-      // }));
+      
+      const processedData = jsonData.map((row) => {
+        return Object.values(
+          Object.fromEntries(
+            Object.entries(row).map(([key, value]) => {
+              if (typeof value === "string" && !isNaN(value)) {
+                // Convert numeric strings to numbers
+                return [key, parseFloat(value)];
+              } else if (value === "TRUE" || value === "FALSE") {
+                // Convert string booleans to actual booleans
+                return [key, value === "TRUE"];
+              }
+              return [key, value];
+            })
+          )
+        );
+      });
+      
 
+      console.log(processedData,jsonData)
+
+      const validatedData = validateFn(jsonData, true, itemsTypes, boms);
+      
       return validatedData;
     } catch (error) {
       return rejectWithValue(error.toString());
